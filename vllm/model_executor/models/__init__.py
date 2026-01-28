@@ -41,4 +41,5 @@ __all__ = [
     "supports_pp",
     "SupportsTranscription",
     "supports_transcription",
+    "BoltXLExtremeForCausalLM",
 ]

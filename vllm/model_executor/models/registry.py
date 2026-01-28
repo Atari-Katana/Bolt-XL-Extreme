@@ -198,6 +198,7 @@ _TEXT_GENERATION_MODELS = {
     "TeleFLMForCausalLM": ("teleflm", "TeleFLMForCausalLM"),
     "XverseForCausalLM": ("llama", "LlamaForCausalLM"),
     "Zamba2ForCausalLM": ("zamba2", "Zamba2ForCausalLM"),
+    "BoltXLExtremeForCausalLM": ("bolt_xl_extreme", "BoltXLExtremeForCausalLM"),
 }
 
 _EMBEDDING_MODELS = {

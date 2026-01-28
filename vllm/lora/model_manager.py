@@ -881,7 +881,7 @@ def create_lora_manager(
     max_num_batched_tokens: int,
     vocab_size: int,
     lora_config: LoRAConfig,
-    vllm_config: VllmConfig,
+    vllm_config: VllmConfig | None,
     device: torch.device,
     lora_manager_cls: type[LoRAModelManager] = LoRAModelManager,
     **kwargs,

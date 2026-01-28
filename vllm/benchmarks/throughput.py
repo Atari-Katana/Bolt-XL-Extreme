@@ -65,11 +65,10 @@ def run_vllm(
     prompts: list[TextPrompt | TokensPrompt] = []
     sampling_params: list[SamplingParams] = []
     for request in requests:
-        prompt = (
-            TokensPrompt(prompt_token_ids=request.prompt["prompt_token_ids"])
-            if "prompt_token_ids" in request.prompt
-            else TextPrompt(prompt=request.prompt)
-        )
+        if isinstance(request.prompt, dict):
+            prompt = TokensPrompt(prompt_token_ids=request.prompt["prompt_token_ids"])
+        else:
+            prompt = TextPrompt(prompt=str(request.prompt))
         if request.multi_modal_data:
             assert isinstance(request.multi_modal_data, dict)
             prompt["multi_modal_data"] = request.multi_modal_data
@@ -104,7 +103,13 @@ def run_vllm(
         end = time.perf_counter()
     else:
         assert lora_requests is None, "BeamSearch API does not support LoRA"
-        prompts = [request.prompt for request in requests]
+        beam_prompts: list[str | TokensPrompt] = []
+        for request in requests:
+            if isinstance(request.prompt, dict):
+                beam_prompts.append(TokensPrompt(prompt_token_ids=request.prompt["prompt_token_ids"]))
+            else:
+                beam_prompts.append(str(request.prompt))
+        prompts = beam_prompts  # type: ignore[assignment]
         # output_len should be the same for all requests.
         output_len = requests[0].expected_output_len
         for request in requests:
@@ -207,11 +212,10 @@ async def run_vllm_async(
         sampling_params: list[SamplingParams] = []
         lora_requests: list[LoRARequest | None] = []
         for request in requests:
-            prompt = (
-                TokensPrompt(prompt_token_ids=request.prompt["prompt_token_ids"])
-                if "prompt_token_ids" in request.prompt
-                else TextPrompt(prompt=request.prompt)
-            )
+            if isinstance(request.prompt, dict):
+                 prompt = TokensPrompt(prompt_token_ids=request.prompt["prompt_token_ids"])
+            else:
+                 prompt = TextPrompt(prompt=str(request.prompt))
 
             if request.multi_modal_data:
                 assert isinstance(request.multi_modal_data, dict)
@@ -278,7 +282,7 @@ def run_hf(
         prompt_len = requests[i].prompt_len
         output_len = requests[i].expected_output_len
         # Add the prompt to the batch.
-        batch.append(prompt)
+        batch.append(str(prompt))
         max_prompt_len = max(max_prompt_len, prompt_len)
         max_output_len = max(max_output_len, output_len)
         if len(batch) < max_batch_size and i != len(requests) - 1:
@@ -366,7 +370,8 @@ def get_requests(args, tokenizer):
         sample_kwargs["output_len"] = (
             random_output_len if random_output_len is not None else args.output_len
         )
-        dataset_cls = RandomDataset
+
+        dataset_cls: type[Any] = RandomDataset
     elif args.dataset_name == "sharegpt":
         dataset_cls = ShareGPTDataset
         if args.backend == "vllm-chat":

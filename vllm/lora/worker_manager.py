@@ -71,6 +71,7 @@ class WorkerLoRAManager:
         model: torch.nn.Module,
         vllm_config: VllmConfig | None = None,
     ) -> Any:
+        assert self.lora_config is not None
         lora_manager = create_lora_manager(
             model,
             max_num_seqs=self.max_num_seqs,
@@ -89,6 +90,7 @@ class WorkerLoRAManager:
             supported_lora_modules = self._adapter_manager.supported_lora_modules
             packed_modules_mapping = self._adapter_manager.packed_modules_mapping
             expected_lora_lst: list[str] = []
+            assert self.lora_config is not None
             for module in supported_lora_modules:
                 if module in packed_modules_mapping:
                     expected_lora_lst.extend(packed_modules_mapping[module])
@@ -224,6 +226,7 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
         model: torch.nn.Module,
         vllm_config: VllmConfig | None = None,
     ) -> Any:
+        assert self.lora_config is not None
         lora_manager = create_lora_manager(
             model,
             lora_manager_cls=self._manager_cls,

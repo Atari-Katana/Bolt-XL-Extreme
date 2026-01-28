@@ -4,6 +4,7 @@
 from collections.abc import Iterable
 
 import torch
+from typing import Any
 from torch import nn
 
 from vllm.compilation.decorators import support_torch_compile
@@ -107,7 +108,9 @@ class KimiMoE(nn.Module):
         hidden_size = config.hidden_size
         intermediate_size = config.intermediate_size
         moe_intermediate_size = config.moe_intermediate_size
+        assert moe_intermediate_size is not None
         num_experts = config.num_experts
+        assert num_experts is not None
         moe_renormalize = config.moe_renormalize
         self.tp_size = get_tensor_model_parallel_world_size()
         self.routed_scaling_factor = config.routed_scaling_factor
@@ -130,6 +133,11 @@ class KimiMoE(nn.Module):
         )
 
         self.gate.e_score_correction_bias = nn.Parameter(torch.empty(num_experts))
+
+        assert config.num_experts_per_token is not None
+        assert config.use_grouped_topk is not None
+        assert config.num_expert_group is not None
+        assert config.topk_group is not None
 
         self.experts = FusedMoE(
             num_experts=num_experts,
@@ -311,6 +319,11 @@ class KimiDecoderLayer(nn.Module):
                 prefix=f"{prefix}.self_attn",
             )
         else:
+            assert config.qk_nope_head_dim is not None
+            assert config.qk_rope_head_dim is not None
+            assert config.v_head_dim is not None
+            assert config.kv_lora_rank is not None
+            assert config.mla_use_nope is not None
             self.self_attn = KimiMLAAttention(
                 layer_idx=layer_idx,
                 hidden_size=self.hidden_size,
@@ -405,7 +418,7 @@ class KimiLinearModel(nn.Module):
         else:
             self.embed_tokens = PPMissingLayer()
 
-        extra_kwargs = {}
+        extra_kwargs: dict[str, Any] = {}
 
         def get_layer(prefix: str):
             layer_idx = int(prefix.rsplit(".", 1)[1])
