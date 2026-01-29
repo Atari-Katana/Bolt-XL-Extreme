@@ -346,8 +346,12 @@ class Scheduler(SchedulerInterface):
 
             # do not schedule another step for the same request while it still has
             # output placeholders for PP.
-            # TODO: support PP + async scheduling without this limit
-            if self.use_pp and request.num_output_placeholders > 0:
+            # We allow scheduling multiple steps for the same request if it is in the
+            # prefill phase (Chunked Prefill). For decode phase, we must wait for
+            # the output token from the previous step.
+            num_processed_tokens = request.num_computed_tokens + request.num_output_placeholders
+            is_prefill = num_processed_tokens < request.num_prompt_tokens
+            if self.use_pp and request.num_output_placeholders > 0 and not is_prefill:
                 req_index += 1
                 continue
 
