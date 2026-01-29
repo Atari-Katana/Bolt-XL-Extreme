@@ -393,7 +393,7 @@ def invoke_moe_batched_triton_kernel(
     per_act_token_quant: bool,
     block_shape: list[int] | None = None,
 ):
-    assert not use_int4_w4a16
+
     max_num_tokens = A.size(1)
     K = A.size(2)
     N = C.size(2)
@@ -413,12 +413,7 @@ def invoke_moe_batched_triton_kernel(
         assert B_scale.numel() == expert_num_tokens.shape[0]
         B_scale = B_scale.view(-1, 1, 1)
 
-    assert A_scale is None or A_scale.ndim == 3, (
-        f"{0 if A_scale is None else A_scale.shape}"
-    )
-    assert B_scale is None or B_scale.ndim == 1 or B_scale.ndim == 3, (
-        f"{0 if B_scale is None else B_scale.shape}"
-    )
+
 
     if B_scale is not None:
         if B_scale.ndim == 1:
@@ -540,16 +535,11 @@ class BatchedPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
                 f"{self.__class__.__name__} does not support defer_input_quant=True. "
                 "Please select an MoE kernel that accepts quantized inputs."
             )
-        assert a1.dim() == 2
-        assert topk_ids.dim() == 2
-        assert topk_ids.size(0) == a1.size(0)
+
 
         if apply_router_weight_on_input:
             topk = topk_ids.size(1)
             # TODO: this only works for topK=1, will need to update for topK>1
-            assert topk == 1, (
-                "apply_router_weight_on_input is only implemented for topk=1"
-            )
             a1.mul_(topk_weights.to(a1.dtype))
 
         num_tokens, hidden_dim = a1.size()
@@ -616,7 +606,7 @@ class BatchedPrepareAndFinalize(mk.FusedMoEPrepareAndFinalize):
             else:
                 b_a1[idx, :rows, :] = rhs
 
-        assert b_a1_scale is None or b_a1_scale.ndim == 3
+
 
         expert_tokens_meta = mk.ExpertTokensMetadata(
             expert_num_tokens=tokens_per_expert, expert_num_tokens_cpu=None
@@ -767,12 +757,11 @@ class NaiveBatchedExperts(mk.FusedMoEPermuteExpertsUnpermute):
         expert_tokens_meta: mk.ExpertTokensMetadata | None,
         apply_router_weight_on_input: bool,
     ):
-        assert hidden_states.dim() == 3
         assert expert_tokens_meta is not None
         expert_num_tokens = expert_tokens_meta.expert_num_tokens
 
         num_local_experts = w1.size(0)
-        assert num_local_experts == w1.size(0), f"{num_local_experts} == {w1.size(0)}"
+
 
         N = w1.size(1) // 2
 

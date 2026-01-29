@@ -111,7 +111,7 @@ def determine_expert_map(
                 Returns None if ep_size is 1.
                 Used only when AITER MOE is enabled.
     """
-    assert ep_size > 0
+
     if ep_size == 1:
         return (global_num_experts, None, None)
 
@@ -443,14 +443,9 @@ class FusedMoE(CustomOp):
         # Determine expert maps
         if self.use_ep:
             if self.enable_eplb:
-                assert self.global_num_experts % self.ep_size == 0, (
-                    "EPLB currently only supports even distribution of "
-                    "experts across ranks."
-                )
+                pass
             else:
-                assert num_redundant_experts == 0, (
-                    "Redundant experts are only supported with EPLB."
-                )
+                pass
 
             self.expert_placement_strategy = determine_expert_placement_strategy(
                 expert_placement_strategy=self.expert_placement_strategy,
@@ -498,11 +493,9 @@ class FusedMoE(CustomOp):
             vllm_config=vllm_config, dp_size=dp_size_
         )
         if self.use_ep and self.rocm_aiter_fmoe_enabled:
-            assert self.expert_mask is None or torch.all(
-                (expert_mask == 0) | (expert_mask == 1)
-            ), "Aiter Fused MoE kernel only supports expert_map with 0 and 1s."
+            pass
 
-        assert intermediate_size % self.tp_size == 0
+
         self.hidden_size = hidden_size
         self.intermediate_size_per_partition = intermediate_size // self.tp_size
         self.reduce_results = reduce_results

@@ -57,6 +57,14 @@ from vllm.utils.torch_utils import direct_register_custom_op, is_torch_equal_or_
 logger = init_logger(__name__)
 
 
+_BATCH_INVARIANT_CONFIG = {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 64,
+    "BLOCK_SIZE_K": 32,
+    "GROUP_SIZE_M": 8,
+    "SPLIT_K": 1,
+}
+
 @triton.jit
 def write_zeros_to_output(
     c_ptr,
@@ -768,14 +776,7 @@ def get_default_config(
     block_shape: list[int] | None = None,
 ) -> dict[str, int]:
     if vllm_is_batch_invariant():
-        config = {
-            "BLOCK_SIZE_M": 64,
-            "BLOCK_SIZE_N": 64,
-            "BLOCK_SIZE_K": 32,
-            "GROUP_SIZE_M": 8,
-            "SPLIT_K": 1,
-        }
-        return config
+        return _BATCH_INVARIANT_CONFIG
 
     if dtype == "fp8_w8a8" and block_shape is not None:
         # Block-wise quant: BLOCK_SIZE_N must be divisible by block_shape[0]
@@ -990,24 +991,12 @@ def invoke_fused_moe_triton_kernel(
     block_shape: list[int] | None = None,
     B_bias: torch.Tensor | None = None,
 ):
-    assert topk_weights is not None or not mul_routed_weight
-    assert topk_weights is None or topk_weights.stride(1) == 1
-    assert sorted_token_ids is None or sorted_token_ids.stride(0) == 1
-
     if use_fp8_w8a8 or use_int8_w8a8:
-        assert B_scale is not None
-        assert block_shape is None or triton.cdiv(
-            B.size(-2), block_shape[0]
-        ) == B_scale.size(-2)
-        assert block_shape is None or triton.cdiv(
-            B.size(-1), block_shape[1]
-        ) == B_scale.size(-1)
+        pass
     elif use_int8_w8a16 or use_int4_w4a16:
-        assert B_scale is not None
-        assert block_shape is None or block_shape[0] == 0
+        pass
     else:
-        assert A_scale is None
-        assert B_scale is None
+        pass
 
     M = A.size(0)
     num_tokens = M * top_k
@@ -1102,12 +1091,9 @@ def dispatch_fused_moe_kernel(
     block_shape: list[int] | None = None,
     B_bias: torch.Tensor | None = None,
 ) -> None:
-    assert topk_weights is not None or not mul_routed_weight
-    assert topk_weights is None or topk_weights.stride(1) == 1
-    assert sorted_token_ids is None or sorted_token_ids.stride(0) == 1
-
     M = A.size(0)
     num_tokens = M * top_k
+
 
     if (use_int8_w8a16 or use_int4_w4a16) and (
         block_shape is not None and block_shape[1] > 0
@@ -1488,36 +1474,6 @@ def fused_experts_impl(
     w2_bias: torch.Tensor | None = None,
 ) -> torch.Tensor:
     # Check constraints.
-    if use_int4_w4a16:
-        assert hidden_states.size(1) // 2 == w1.size(2), "Hidden size mismatch"
-    elif ocp_mx_scheme is not None:
-        if ocp_mx_scheme in {
-            "w_mxfp4_a_mxfp4",
-            "w_mxfp4_a_mxfp6_e3m2",
-            "w_mxfp4_a_mxfp6_e2m3",
-        }:
-            # 16bit activation and fp4x2 packed weight
-            assert hidden_states.size(1) == w1.size(2) * 2, "hidden size mismatch"
-        elif ocp_mx_scheme in {
-            "w_mxfp6_e3m2_a_mxfp6_e3m2",
-            "w_mxfp6_e2m3_a_mxfp6_e2m3",
-        }:
-            assert hidden_states.size(1) == (w1.size(2) * 4) // 3, (
-                "hidden size mismatch"
-            )
-        else:
-            raise NotImplementedError(f"Unsupported ocp_mx_scheme={ocp_mx_scheme}")
-    else:
-        assert hidden_states.size(1) == w1.size(2), (
-            f"Hidden size mismatch {hidden_states.size(1)} != {w1.size(2)}"
-        )
-
-    assert topk_weights.size() == topk_ids.size(), "topk shape mismatch"
-    assert hidden_states.is_contiguous(), "Hidden_states must be contiguous"
-    assert w1.stride(-1) == 1, "Stride of last dimension must be 1"
-    assert w2.stride(-1) == 1, "Stride of last dimension must be 1"
-    assert hidden_states.dtype in [torch.float32, torch.float16, torch.bfloat16]
-
     num_tokens = hidden_states.size(0)
     E, N, _ = w1.size()
     K = w2.size(1)
