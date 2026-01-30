@@ -238,3 +238,23 @@ ep_kernels_workspace/
 vllm/grpc/vllm_engine_pb2.py
 vllm/grpc/vllm_engine_pb2_grpc.py
 vllm/grpc/vllm_engine_pb2.pyi
+
+# ignore models directory
+vllm/models/
+.deps/
+_deps/
+deps/
+# Model weights
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.gguf
+models/
+checkpoints/
+# Local model weights (not in Git)
+models/
+*.safetensors
+*.json
+
+
